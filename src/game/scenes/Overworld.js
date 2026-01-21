@@ -1,5 +1,6 @@
 import { EventBus } from '../EventBus';
 import { Scene } from 'phaser';
+import gameState from '../GameState';
 
 export class Overworld extends Scene
 {
@@ -10,11 +11,12 @@ export class Overworld extends Scene
         this.lastMoveTime = 0;
         this.npcs = [];
         this.battleNPC = null;
-        this.interactionPrompt = null;
+        this.nearestNPC = null;
         this.playerName = 'Player';
         this.playerNameText = null;
         this.currentMap = 'large-map'; // Track current map (use large map by default)
         this.mapTransitions = []; // Store transition zones
+        this.battleActive = false; // Track if battle is active to disable input
     }
 
     init (data)
@@ -41,6 +43,12 @@ export class Overworld extends Scene
 
     create ()
     {
+        // Clean up any DOM elements from previous scenes
+        const existingInput = document.getElementById('player-name-input');
+        if (existingInput) {
+            existingInput.remove();
+        }
+
         // Load map (default or specified map)
         const map = this.make.tilemap({ key: this.currentMap });
 
@@ -117,12 +125,23 @@ export class Overworld extends Scene
         this.cursors = this.input.keyboard.createCursorKeys();
         this.keys = this.input.keyboard.addKeys('W,A,S,D,C,SPACE,ENTER');
 
+        // Listen for battle start - disable input during battle
+        EventBus.on('start-battle', () => {
+            this.battleActive = true;
+        });
+
+        // Listen for battle end - re-enable input
+        EventBus.on('battle-ended', () => {
+            this.battleActive = false;
+        });
+
         // Listen for battle rejection
         EventBus.on('battle-rejected', () => {
             if (this.battleNPC) {
                 this.battleNPC.challenged = false;
                 this.battleNPC = null;
             }
+            this.battleActive = false;
         });
 
         // Listen for player name (stored but not displayed)
@@ -206,7 +225,16 @@ export class Overworld extends Scene
                         }
                         sprite.setDepth(5);
 
+                        // Check if NPC is already defeated
+                        const isDefeated = gameState.isGuestDefeated(guestId);
+                        if (isDefeated) {
+                            sprite.setAlpha(0.4);
+                            sprite.setTint(0x888888); // Grey tint
+                            npc.challenged = true; // Mark as already challenged
+                        }
+
                         npc.sprite = sprite;
+                        npc.defeated = isDefeated;
                         this.npcs.push(npc);
                         npcCount++;
                     }
@@ -252,7 +280,16 @@ export class Overworld extends Scene
                 }
                 sprite.setDepth(5);
 
+                // Check if NPC is already defeated
+                const isDefeated = gameState.isGuestDefeated(data.id);
+                if (isDefeated) {
+                    sprite.setAlpha(0.4);
+                    sprite.setTint(0x888888); // Grey tint
+                    npc.challenged = true; // Mark as already challenged
+                }
+
                 npc.sprite = sprite;
+                npc.defeated = isDefeated;
                 this.npcs.push(npc);
             });
         }
@@ -260,6 +297,11 @@ export class Overworld extends Scene
 
     update (time)
     {
+        // Disable all input during battle
+        if (this.battleActive) {
+            return;
+        }
+
         if (time - this.lastMoveTime < this.moveDelay) {
             return;
         }
@@ -318,30 +360,21 @@ export class Overworld extends Scene
         });
 
         if (nearestNPC) {
-            // Show prompt if not already visible
-            if (!this.interactionPrompt) {
-                this.interactionPrompt = this.add.text(
-                    this.player.sprite.x,
-                    this.player.sprite.y - 30,
-                    'Click SPACE to fight',
-                    {
-                        fontSize: '8px',
-                        fontFamily: 'Press Start 2P, monospace',
-                        color: '#FFFFFF',
-                        backgroundColor: '#000000',
-                        padding: { x: 6, y: 4 }
-                    }
-                );
-                this.interactionPrompt.setOrigin(0.5);
-                this.interactionPrompt.setDepth(20);
+            // Store nearest NPC and emit event to show encounter dialog
+            if (!this.nearestNPC || this.nearestNPC.id !== nearestNPC.id) {
+                this.nearestNPC = nearestNPC;
+                EventBus.emit('show-encounter-dialog', {
+                    id: nearestNPC.id,
+                    name: nearestNPC.name,
+                    sprite: nearestNPC.sprite,
+                    episode: 'Product Knowledge'
+                });
             }
-            // Update prompt position
-            this.interactionPrompt.setPosition(this.player.sprite.x, this.player.sprite.y - 30);
         } else {
-            // Hide prompt
-            if (this.interactionPrompt) {
-                this.interactionPrompt.destroy();
-                this.interactionPrompt = null;
+            // Clear nearest NPC and hide dialog
+            if (this.nearestNPC) {
+                this.nearestNPC = null;
+                EventBus.emit('hide-encounter-dialog');
             }
         }
     }
@@ -445,28 +478,13 @@ export class Overworld extends Scene
 
     checkNPCInteraction ()
     {
-        // Check for NPCs within 5 tile range
-        const interactionRange = 5;
-        let nearestNPC = null;
-        let nearestDistance = Infinity;
-
-        this.npcs.forEach(npc => {
-            if (!npc.challenged) {
-                const dx = Math.abs(npc.tileX - this.player.tileX);
-                const dy = Math.abs(npc.tileY - this.player.tileY);
-                const distance = dx + dy; // Manhattan distance
-
-                if (distance <= interactionRange && distance < nearestDistance) {
-                    nearestNPC = npc;
-                    nearestDistance = distance;
-                }
-            }
-        });
-
-        if (nearestNPC) {
-            nearestNPC.challenged = true;
-            this.battleNPC = nearestNPC;
-            EventBus.emit('start-battle', { guestId: nearestNPC.id, guestName: nearestNPC.name });
+        // Use the nearestNPC that's already tracked
+        if (this.nearestNPC) {
+            this.nearestNPC.challenged = true;
+            this.battleNPC = this.nearestNPC;
+            // Hide the encounter dialog and start battle directly
+            EventBus.emit('hide-encounter-dialog');
+            EventBus.emit('start-battle', { guestId: this.nearestNPC.id, guestName: this.nearestNPC.name });
         }
     }
 

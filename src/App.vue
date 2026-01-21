@@ -194,6 +194,8 @@ function handleStartBattle() {
 
 function handleCloseBattle() {
   showBattle.value = false;
+  // Re-enable input in Overworld
+  EventBus.emit('battle-ended');
 }
 
 function handleOpenCollection() {
@@ -282,16 +284,33 @@ function setPlayerName(name) {
 }
 
 onMounted(() => {
-  EventBus.on('start-battle', (data) => {
-    if (data && data.guestId) {
-      // Find guest data
-      const guest = collection.value.find(g => g.id === data.guestId);
+  // Show encounter dialog when approaching NPC
+  EventBus.on('show-encounter-dialog', (data) => {
+    if (data && data.id) {
+      const guest = collection.value.find(g => g.id === data.id);
       if (guest) {
-        // Show encounter dialog instead of starting battle immediately
         handleShowEncounter(guest);
       }
     }
   });
+
+  // Hide encounter dialog when walking away
+  EventBus.on('hide-encounter-dialog', () => {
+    showEncounter.value = false;
+    encounterNPC.value = null;
+  });
+
+  // Start battle directly (skip encounter dialog)
+  EventBus.on('start-battle', (data) => {
+    if (data && data.guestId) {
+      const guest = collection.value.find(g => g.id === data.guestId);
+      if (guest) {
+        battleData.value.guest = guest;
+        showBattle.value = true;
+      }
+    }
+  });
+
   EventBus.on('open-collection', handleOpenCollection);
   EventBus.on('player-name-set', (name) => {
     setPlayerName(name);
@@ -299,6 +318,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  EventBus.off('show-encounter-dialog');
+  EventBus.off('hide-encounter-dialog');
   EventBus.off('start-battle');
   EventBus.off('open-collection', handleOpenCollection);
   EventBus.off('player-name-set');

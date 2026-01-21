@@ -1,41 +1,39 @@
 <template>
-  <div class="encounter-overlay" v-if="isActive" @click="handleReject">
-    <div class="encounter-dialog" @click.stop>
-      <div class="npc-avatar">
-        <img
-          v-if="npcData.id === '1'"
-          src="/assets/elena-front.png"
-          alt="NPC"
-          class="npc-image"
-        />
-        <span v-else class="npc-emoji">{{ npcData.sprite || '👤' }}</span>
+  <!-- Pokemon-style dialog positioned over game canvas -->
+  <div class="pokemon-dialog-container" v-if="isActive">
+    <div class="pokemon-textbox">
+      <!-- Inner border decoration -->
+      <div class="textbox-inner-border"></div>
+
+      <!-- NPC name header -->
+      <div class="npc-name-header">
+        <span class="name-text">{{ npcData.name }}</span>
       </div>
 
-      <div class="encounter-content">
-        <h2 class="npc-name">{{ npcData.name }}</h2>
-        <p class="encounter-message">
-          {{ npcData.name }} wants to battle!
-        </p>
-        <p class="encounter-subtitle">
-          Test your knowledge about {{ npcData.episode || 'their expertise' }}
+      <!-- Message content with typewriter effect -->
+      <div class="message-content">
+        <p class="dialog-text">
+          {{ displayedMessage }}
+          <span v-if="isTyping" class="typing-cursor">|</span>
         </p>
       </div>
 
-      <div class="encounter-actions">
-        <button class="accept-btn" @click="handleAccept">
-          <span class="btn-icon">⚔️</span>
-          Accept Battle
-        </button>
-        <button class="reject-btn" @click="handleReject">
-          <span class="btn-icon">🏃</span>
-          Walk Away
-        </button>
+      <!-- Instructions footer -->
+      <div class="dialog-footer">
+        <div class="instruction-text">
+          <span class="key-prompt">SPACE</span> to battle
+          <span class="divider">•</span>
+          Walk away to cancel
+        </div>
+        <div class="continue-arrow" v-if="!isTyping">▼</div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref, watch, onUnmounted } from 'vue';
+
 const props = defineProps({
   isActive: Boolean,
   npcData: {
@@ -46,184 +44,273 @@ const props = defineProps({
 
 const emit = defineEmits(['accept', 'reject']);
 
-function handleAccept() {
-  emit('accept');
+// Random encounter messages
+const encounterMessages = [
+  "wants to battle!",
+  "challenges you!",
+  "is ready to fight!",
+  "would like to battle!",
+  "is looking for a trainer!",
+  "blocks your way!",
+  "spotted you!",
+  "wants to test your knowledge!"
+];
+
+const displayedMessage = ref('');
+const isTyping = ref(false);
+let typewriterTimeout = null;
+
+// Generate random message
+function getRandomMessage() {
+  const randomMsg = encounterMessages[Math.floor(Math.random() * encounterMessages.length)];
+  return `${props.npcData.name} ${randomMsg}`;
 }
 
-function handleReject() {
-  emit('reject');
+// Typewriter effect
+function typeMessage(message) {
+  isTyping.value = true;
+  displayedMessage.value = '';
+  let index = 0;
+
+  function typeChar() {
+    if (index < message.length) {
+      displayedMessage.value += message[index];
+      index++;
+      typewriterTimeout = setTimeout(typeChar, 40); // 40ms per character
+    } else {
+      isTyping.value = false;
+    }
+  }
+
+  typeChar();
 }
+
+// Watch for dialog activation
+watch(() => props.isActive, (newVal) => {
+  if (newVal) {
+    const message = getRandomMessage();
+    typeMessage(message);
+  } else {
+    // Clear typewriter on close
+    if (typewriterTimeout) {
+      clearTimeout(typewriterTimeout);
+    }
+    displayedMessage.value = '';
+  }
+});
+
+onUnmounted(() => {
+  if (typewriterTimeout) {
+    clearTimeout(typewriterTimeout);
+  }
+});
 </script>
 
 <style scoped>
-.encounter-overlay {
+/* Pokemon-style dialog positioned inside game canvas */
+.pokemon-dialog-container {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 900;
-  padding: 20px;
-  animation: fadeIn 0.3s ease;
+  bottom: calc(50% - 320px + 20px); /* Position inside game canvas (640px height / 2 = 320px) */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 880px; /* Match game canvas width minus padding */
+  max-width: 880px;
+  z-index: 1500;
+  animation: dialogSlideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.encounter-dialog {
-  background: #FFF;
-  border: 6px solid #000;
-  border-radius: 16px;
-  padding: 32px;
-  max-width: 500px;
-  width: 100%;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
-  font-family: 'Press Start 2P', monospace, sans-serif;
-  animation: slideUp 0.3s ease;
-}
-
-@keyframes slideUp {
+@keyframes dialogSlideUp {
   from {
-    transform: translateY(30px);
+    transform: translateX(-50%) translateY(100px);
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: translateX(-50%) translateY(0);
     opacity: 1;
   }
 }
 
-.npc-avatar {
-  width: 120px;
-  height: 120px;
-  margin: 0 auto 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: 4px solid #000;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+/* Classic Pokemon textbox */
+.pokemon-textbox {
+  position: relative;
+  background: #fff;
+  border: 8px solid #000;
+  box-shadow:
+    inset 0 0 0 4px #e8e8e8,
+    0 8px 0 #000,
+    0 12px 24px rgba(0, 0, 0, 0.5);
+  padding: 20px 28px;
+  font-family: 'Press Start 2P', monospace, sans-serif;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
 }
 
-.npc-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+/* Inner decorative border */
+.textbox-inner-border {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  border: 2px solid #d0d0d0;
+  pointer-events: none;
 }
 
-.npc-emoji {
-  font-size: 64px;
+/* NPC name header */
+.npc-name-header {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid #000;
 }
 
-.encounter-content {
-  text-align: center;
-  margin-bottom: 24px;
-}
-
-.npc-name {
-  font-size: 20px;
-  margin: 0 0 16px 0;
+.name-text {
+  font-size: 16px;
   color: #000;
-  text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
-.encounter-message {
+/* Message content */
+.message-content {
+  min-height: 60px;
+  margin-bottom: 12px;
+}
+
+.dialog-text {
   font-size: 14px;
-  margin: 0 0 12px 0;
-  color: #333;
-  line-height: 1.6;
-}
-
-.encounter-subtitle {
-  font-size: 10px;
+  line-height: 1.8;
+  color: #000;
   margin: 0;
-  color: #666;
-  line-height: 1.6;
+  word-wrap: break-word;
 }
 
-.encounter-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.typing-cursor {
+  display: inline-block;
+  animation: cursorBlink 0.5s step-end infinite;
+  margin-left: 2px;
 }
 
-.accept-btn,
-.reject-btn {
-  width: 100%;
-  padding: 16px 24px;
-  font-size: 14px;
-  font-family: inherit;
-  font-weight: bold;
-  border: 4px solid #000;
-  border-radius: 8px;
-  cursor: pointer;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s ease;
+@keyframes cursorBlink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* Footer with instructions */
+.dialog-footer {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 3px solid #000;
+}
+
+.instruction-text {
+  font-size: 10px;
+  color: #666;
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-.accept-btn {
-  background: linear-gradient(180deg, #4CAF50 0%, #45a049 100%);
-  color: #FFF;
+.key-prompt {
+  display: inline-block;
+  padding: 4px 8px;
+  background: #000;
+  color: #fff;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: bold;
+  letter-spacing: 1px;
 }
 
-.accept-btn:hover {
-  background: linear-gradient(180deg, #45a049 0%, #3d8b40 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+.divider {
+  color: #999;
+  font-size: 10px;
 }
 
-.reject-btn {
-  background: linear-gradient(180deg, #999 0%, #777 100%);
-  color: #FFF;
-}
-
-.reject-btn:hover {
-  background: linear-gradient(180deg, #888 0%, #666 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
-}
-
-.accept-btn:active,
-.reject-btn:active {
-  transform: translateY(0);
-}
-
-.btn-icon {
+/* Blinking continue arrow */
+.continue-arrow {
   font-size: 16px;
+  color: #000;
+  animation: arrowBounce 1s ease-in-out infinite;
+  font-family: monospace;
+}
+
+@keyframes arrowBounce {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(4px);
+    opacity: 0.6;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 1000px) {
+  .pokemon-dialog-container {
+    width: calc(100% - 40px);
+    max-width: none;
+  }
 }
 
 @media (max-width: 800px) {
-  .encounter-dialog {
-    padding: 24px;
+  .pokemon-textbox {
+    padding: 16px 20px;
+    border-width: 6px;
   }
 
-  .npc-name {
-    font-size: 16px;
+  .name-text {
+    font-size: 13px;
   }
 
-  .encounter-message {
+  .dialog-text {
     font-size: 12px;
   }
 
-  .encounter-subtitle {
+  .instruction-text {
     font-size: 9px;
   }
 
-  .accept-btn,
-  .reject-btn {
-    padding: 14px 20px;
-    font-size: 12px;
+  .key-prompt {
+    font-size: 8px;
+    padding: 3px 6px;
+  }
+
+  .continue-arrow {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 600px) {
+  .pokemon-textbox {
+    padding: 12px 16px;
+    border-width: 5px;
+  }
+
+  .name-text {
+    font-size: 11px;
+  }
+
+  .dialog-text {
+    font-size: 10px;
+    line-height: 1.6;
+  }
+
+  .message-content {
+    min-height: 48px;
+  }
+
+  .instruction-text {
+    font-size: 8px;
+    gap: 6px;
+  }
+
+  .key-prompt {
+    font-size: 7px;
+    padding: 2px 5px;
   }
 }
 </style>
