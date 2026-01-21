@@ -46,7 +46,7 @@
         <!-- Player info box (bottom right) -->
         <div class="player-info-box">
           <div class="player-name-row">
-            <span class="player-name">User</span>
+            <span class="player-name">{{ playerName || 'Player' }}</span>
             <span class="player-level">♂Lv.42</span>
           </div>
           <div class="hp-bar-row">
@@ -140,7 +140,8 @@ import { ref, computed, watch } from 'vue';
 
 const props = defineProps({
   isActive: Boolean,
-  battleData: Object
+  battleData: Object,
+  playerName: String
 });
 
 const emit = defineEmits(['close', 'guest-captured', 'answer-submitted']);
@@ -867,30 +868,33 @@ function closeBattle() {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
   padding: 20px;
+  animation: overlayFadeIn 0.4s ease-out forwards;
 }
 
 .battle-result-box {
   background: #FFF;
-  border: 6px solid #000;
-  border-radius: 16px;
+  border: 3px solid #000;
+  border-radius: 12px;
   padding: 40px;
   text-align: center;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
-  max-width: 500px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  max-width: 450px;
   width: 100%;
+  position: relative;
 }
 
 .result-title {
   font-size: 36px;
+  font-family: 'Press Start 2P', monospace, sans-serif;
   margin: 0 0 20px 0;
-  color: #FFD700;
-  text-shadow: 3px 3px 0px #000;
+  letter-spacing: 2px;
 }
 
 .result-message {
@@ -902,22 +906,28 @@ function closeBattle() {
 
 .result-continue-btn {
   padding: 16px 40px;
-  font-size: 16px;
-  font-family: inherit;
-  background: #4CAF50;
-  color: #FFF;
-  border: 4px solid #000;
+  font-size: 14px;
+  font-family: 'Press Start 2P', monospace, sans-serif;
+  font-weight: bold;
+  background: #FFD700;
+  color: #000;
+  border: 3px solid #000;
   border-radius: 8px;
   cursor: pointer;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .result-continue-btn:hover {
-  background: #45a049;
+  background: #FFA500;
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+.result-continue-btn:active {
+  transform: translateY(0);
 }
 
 @media (max-width: 800px) {

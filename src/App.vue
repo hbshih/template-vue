@@ -315,6 +315,7 @@ onUnmounted(() => {
     <BattleScreen
       :isActive="showBattle"
       :battleData="battleData"
+      :playerName="playerName"
       @close="handleCloseBattle"
       @guest-captured="handleGuestCaptured"
       @answer-submitted="handleAnswerResult"

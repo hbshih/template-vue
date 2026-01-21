@@ -102,7 +102,7 @@ function closeDetail() {
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -111,44 +111,51 @@ function closeDetail() {
 }
 
 .collection-header {
-  background: rgba(0, 0, 0, 0.8);
-  padding: 20px;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 20px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 4px solid #FFD700;
+  border-bottom: 3px solid #FFD700;
   flex-wrap: wrap;
   gap: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .collection-title {
   font-size: 24px;
+  font-family: 'Press Start 2P', monospace, sans-serif;
   color: #FFD700;
   margin: 0;
-  text-shadow: 3px 3px 0px #000;
+  letter-spacing: 1px;
 }
 
 .collection-progress {
   font-size: 14px;
-  color: #fff;
+  font-family: 'Press Start 2P', monospace, sans-serif;
+  color: #FFF;
   margin: 0;
+  letter-spacing: 1px;
 }
 
 .close-btn {
-  padding: 12px 16px;
-  font-size: 20px;
-  font-family: inherit;
+  padding: 10px 16px;
+  font-size: 18px;
+  font-family: 'Press Start 2P', monospace, sans-serif;
+  font-weight: bold;
   background: #F44336;
-  color: #fff;
+  color: #FFF;
   border: 3px solid #000;
+  border-radius: 8px;
   cursor: pointer;
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .close-btn:hover {
-  background: #d32f2f;
-  transform: translate(-2px, -2px);
-  box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.5);
+  background: #D32F2F;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
 .collection-grid {
@@ -157,17 +164,18 @@ function closeDetail() {
   padding: 24px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 20px;
+  gap: 16px;
   align-content: start;
 }
 
 .guest-card {
-  background: rgba(255, 255, 255, 0.9);
-  border: 4px solid #000;
+  background: #FFF;
+  border: 3px solid #000;
+  border-radius: 12px;
   padding: 16px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -175,32 +183,34 @@ function closeDetail() {
 }
 
 .guest-card.captured:hover {
-  background: #fff;
-  transform: translate(-3px, -3px);
-  box-shadow: 7px 7px 0px rgba(0, 0, 0, 0.3);
+  transform: translateY(-4px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  border-color: #FFD700;
 }
 
 .guest-card.uncaptured {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
-  background: rgba(0, 0, 0, 0.3);
+  background: #DDD;
 }
 
 .guest-card-sprite {
   width: 80px;
   height: 80px;
-  background: rgba(0, 0, 0, 0.1);
+  background: #F0F0F0;
   border: 2px solid #000;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 40px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .sprite-silhouette {
   font-size: 40px;
-  color: #666;
-  text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.5);
+  font-family: 'Press Start 2P', monospace, sans-serif;
+  color: #999;
 }
 
 .guest-card-info {
@@ -209,8 +219,9 @@ function closeDetail() {
 }
 
 .guest-card-name {
-  font-size: 12px;
-  margin: 0 0 8px 0;
+  font-size: 11px;
+  font-weight: bold;
+  margin: 0 0 6px 0;
   color: #000;
   word-wrap: break-word;
   line-height: 1.4;
@@ -218,8 +229,10 @@ function closeDetail() {
 
 .guest-card-number {
   font-size: 10px;
+  font-family: 'Press Start 2P', monospace, sans-serif;
   color: #666;
   margin: 0;
+  letter-spacing: 1px;
 }
 
 .guest-detail-overlay {
@@ -237,13 +250,14 @@ function closeDetail() {
 }
 
 .guest-detail {
-  background: #fff;
-  border: 5px solid #000;
+  background: #FFF;
+  border: 3px solid #000;
+  border-radius: 12px;
   padding: 32px;
-  max-width: 500px;
+  max-width: 450px;
   width: 100%;
   position: relative;
-  box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   text-align: center;
 }
 
@@ -253,50 +267,67 @@ function closeDetail() {
   right: 16px;
   padding: 8px 12px;
   font-size: 16px;
-  font-family: inherit;
+  font-family: 'Press Start 2P', monospace, sans-serif;
+  font-weight: bold;
   background: #F44336;
-  color: #fff;
+  color: #FFF;
   border: 3px solid #000;
+  border-radius: 8px;
   cursor: pointer;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.detail-close-btn:hover {
+  background: #D32F2F;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
 .detail-sprite {
-  width: 128px;
-  height: 128px;
+  width: 120px;
+  height: 120px;
   margin: 0 auto 20px;
-  background: rgba(0, 0, 0, 0.1);
+  background: #F0F0F0;
   border: 3px solid #000;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 64px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .detail-name {
-  font-size: 24px;
-  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-family: 'Press Start 2P', monospace, sans-serif;
+  margin: 0 0 10px 0;
   color: #000;
+  letter-spacing: 1px;
 }
 
 .detail-number {
   font-size: 14px;
+  font-family: 'Press Start 2P', monospace, sans-serif;
   color: #666;
   margin: 0 0 24px 0;
+  letter-spacing: 1px;
 }
 
 .detail-info {
   text-align: left;
-  background: #f5f5f5;
-  border: 3px solid #000;
+  background: #F0F0F0;
+  border: 2px solid #000;
+  border-radius: 8px;
   padding: 16px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .detail-row {
   display: flex;
   justify-content: space-between;
   margin-bottom: 12px;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .detail-row:last-child {
@@ -305,11 +336,14 @@ function closeDetail() {
 
 .detail-label {
   font-weight: bold;
-  color: #333;
+  color: #000;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .detail-value {
-  color: #666;
+  color: #333;
+  font-weight: bold;
   text-align: right;
 }
 
