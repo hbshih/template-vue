@@ -256,17 +256,20 @@ function closeBattle() {
 <style scoped>
 /* Battle Transition Animation */
 .battle-transition {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 960px;
+  height: 640px;
   background: #000;
   z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
   animation: fadeIn 0.3s ease;
+  border: 4px solid #FFD700;
+  box-shadow: 0 0 40px rgba(255, 215, 0, 0.6), 0 8px 32px rgba(0, 0, 0, 0.8);
 }
 
 .transition-effect {
@@ -519,15 +522,18 @@ function closeBattle() {
 }
 
 .battle-screen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 960px;
+  height: 640px;
   z-index: 1000;
   font-family: 'Press Start 2P', monospace, sans-serif;
   overflow: hidden;
   background: #000;
+  border: 4px solid #FFD700;
+  box-shadow: 0 0 40px rgba(255, 215, 0, 0.6), 0 8px 32px rgba(0, 0, 0, 0.8);
 }
 
 /* Battle background - top 65% */
