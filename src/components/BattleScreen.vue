@@ -49,10 +49,10 @@
         <!-- Opponent Sprite -->
         <div class="opponent-sprite">
           <img
-            v-if="battleData.guest.id === '1'"
-            src="/assets/elena-front.png"
-            alt="Opponent"
-            class="sprite-image"
+            v-if="guestAvatarPath"
+            :src="guestAvatarPath"
+            :alt="battleData.guest.name"
+            class="sprite-image opponent-avatar"
           />
           <div v-else class="sprite-placeholder">
             <span class="sprite-emoji">{{ battleData.guest.sprite || '👤' }}</span>
@@ -88,55 +88,45 @@
       </div>
     </div>
 
-    <!-- Battle UI (Questions at Bottom) - Pokemon Style -->
+    <!-- Battle UI (Questions at Bottom) - Compact Horizontal Layout -->
     <div class="battle-ui-panel">
       <div class="pokemon-battle-box">
-        <!-- Inner border decoration -->
-        <div class="textbox-inner-border"></div>
-
-        <div v-if="!answered" class="pokemon-battle-layout">
-          <!-- Left: Question Display -->
-          <div class="pokemon-question-section">
-            <div class="question-meta">
-              <span class="question-badge">Q{{ currentQuestionIndex + 1 }}/5</span>
-              <span class="difficulty-indicator">{{ battleData.guest.difficulty || 'Medium' }}</span>
+        <div v-if="!answered" class="battle-layout-horizontal">
+          <!-- Left: Question (40%) -->
+          <div class="question-section">
+            <div class="q-header">
+              <span class="q-num">Q{{ currentQuestionIndex + 1 }}/5</span>
+              <span class="diff-badge">{{ battleData.guest.difficulty || 'Med' }}</span>
             </div>
-            <p class="pokemon-question-text">{{ currentQuestion.prompt }}</p>
-
-            <!-- Instructions -->
-            <div class="pokemon-instructions">
-              <span class="key-indicator">↑↓</span> Navigate
-              <span class="divider">•</span>
-              <span class="key-indicator">ENTER</span> Confirm
+            <div class="q-text">{{ currentQuestion.prompt }}</div>
+            <div class="controls">
+              <span class="key">↑↓</span> <span class="key">ENTER</span>
             </div>
           </div>
 
-          <!-- Right: Answer Choices -->
-          <div class="pokemon-answers-section">
+          <!-- Right: Answers (60%) -->
+          <div class="answers-section">
             <div
               v-for="(choice, index) in currentQuestion.choices"
               :key="index"
-              class="pokemon-answer-choice"
-              :class="{ 'selected': selectedAnswerIndex === index }"
+              class="answer-item"
+              :class="{ 'active': selectedAnswerIndex === index }"
             >
-              <span class="answer-cursor" v-if="selectedAnswerIndex === index">▶</span>
-              <span class="answer-number">{{ index + 1 }}.</span>
-              <span class="answer-choice-text">{{ choice }}</span>
+              <span class="ans-num">{{ index + 1 }}</span>
+              <span class="ans-text">{{ choice }}</span>
             </div>
           </div>
         </div>
 
         <!-- Feedback Display -->
-        <div v-if="answered" class="pokemon-feedback-section">
-          <div class="feedback-result" :class="{ 'correct': isCorrect, 'incorrect': !isCorrect }">
-            <span class="result-icon">{{ isCorrect ? '✓' : '✗' }}</span>
-            <span class="result-text">{{ isCorrect ? 'CORRECT!' : 'WRONG!' }}</span>
+        <div v-if="answered" class="feedback-display">
+          <div class="result-bar" :class="{ 'correct': isCorrect, 'wrong': !isCorrect }">
+            <span class="icon">{{ isCorrect ? '✓' : '✗' }}</span>
+            <span class="label">{{ isCorrect ? 'CORRECT!' : 'WRONG!' }}</span>
           </div>
-          <p class="feedback-text">{{ currentQuestion.explanation }}</p>
-          <div class="continue-prompt">
-            <span class="key-indicator">ENTER</span>
-            {{ currentQuestionIndex < 4 ? 'Next Question' : 'Finish Battle' }}
-            <span class="continue-arrow">▼</span>
+          <p class="explain-text">{{ currentQuestion.explanation }}</p>
+          <div class="continue-bar">
+            <span class="key">ENTER</span> {{ currentQuestionIndex < 4 ? 'Next' : 'Finish' }} ▼
           </div>
         </div>
       </div>
@@ -285,6 +275,18 @@ const playerHPClass = computed(() => {
   return 'hp-low';
 });
 
+const guestAvatarPath = computed(() => {
+  if (!props.battleData?.guest?.name) return null;
+  const guestName = props.battleData.guest.name;
+
+  // Special case for Elena - use elena-front.png
+  if (guestName.includes('Elena Verna')) {
+    return `/assets/elena-front.png`;
+  }
+
+  return `/assets/avatars/${guestName}_pixel_art.png`;
+});
+
 function resetBattle() {
   guestHP.value = 100;
   playerHP.value = props.playerStats?.hp || 100;
@@ -387,10 +389,12 @@ function endBattle(won) {
 }
 
 function closeBattle() {
+  console.log('closeBattle called - emitting close event');
   emit('close');
 }
 
 function handleRetry() {
+  console.log('handleRetry called');
   // Reset battle and restart
   battleEnded.value = false;
   battleWon.value = false;
@@ -398,6 +402,7 @@ function handleRetry() {
 }
 
 function handleContinue() {
+  console.log('handleContinue called');
   // Close battle screen
   closeBattle();
 }
@@ -574,12 +579,13 @@ function handleContinue() {
   border: 3px solid #fff;
   border-radius: 8px;
   cursor: pointer;
-  z-index: 100;
+  z-index: 2500;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
 }
 
 .exit-battle-btn:hover {
@@ -624,6 +630,15 @@ function handleContinue() {
   height: 160px;
   object-fit: contain;
   filter: drop-shadow(4px 4px 8px rgba(0, 0, 0, 0.4));
+}
+
+.opponent-avatar {
+  width: 150px;
+  height: 150px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
 }
 
 .sprite-placeholder {
@@ -803,13 +818,13 @@ function handleContinue() {
   font-weight: 600;
 }
 
-/* === BATTLE UI PANEL (Bottom) - Pokemon Style === */
+/* === BATTLE UI PANEL (Bottom) - Horizontal Layout === */
 .battle-ui-panel {
   position: absolute;
-  bottom: 20px;
+  bottom: 14px;
   left: 50%;
   transform: translateX(-50%);
-  width: 900px;
+  width: min(900px, 94%);
   z-index: 10;
   animation: slideUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.9s both;
   pointer-events: auto;
@@ -824,114 +839,122 @@ function handleContinue() {
   }
 }
 
-/* Pokemon Battle Textbox */
+/* Compact Battle Box */
 .pokemon-battle-box {
   position: relative;
   background: #fff;
-  border: 8px solid #000;
-  box-shadow:
-    inset 0 0 0 4px #e8e8e8,
-    0 8px 0 #000,
-    0 12px 24px rgba(0, 0, 0, 0.5);
-  padding: 24px 32px;
+  border: 6px solid #000;
+  box-shadow: 0 6px 0 #000, 0 10px 20px rgba(0, 0, 0, 0.4);
+  padding: 14px 18px;
   font-family: 'Press Start 2P', monospace, sans-serif;
-  image-rendering: pixelated;
-  image-rendering: -moz-crisp-edges;
-  image-rendering: crisp-edges;
 }
 
-/* Inner decorative border */
-.textbox-inner-border {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  border: 2px solid #d0d0d0;
-  pointer-events: none;
-}
-
-/* Battle Layout - Horizontal */
-.pokemon-battle-layout {
+/* Horizontal Layout: 40% / 60% Split */
+.battle-layout-horizontal {
   display: flex;
-  gap: 24px;
-  height: 100%;
+  gap: 16px;
+  min-height: 120px;
 }
 
-/* Question Section (Left Side) */
-.pokemon-question-section {
-  flex: 1;
+/* Left: Question Section (40%) */
+.question-section {
+  flex: 0 0 40%;
   display: flex;
   flex-direction: column;
-  padding-right: 24px;
-  border-right: 3px solid #000;
+  gap: 8px;
+  padding-right: 16px;
+  border-right: 3px solid #e0e0e0;
 }
 
-.question-meta {
+.q-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #f0f0f0;
 }
 
-.question-badge {
-  font-size: 10px;
+.q-num {
+  font-size: 9px;
   color: #000;
-  text-transform: uppercase;
-  letter-spacing: 1px;
   font-weight: bold;
 }
 
-.difficulty-indicator {
-  font-size: 9px;
+.diff-badge {
+  font-size: 8px;
   color: #666;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  padding: 2px 6px;
+  background: #f5f5f5;
+  border-radius: 2px;
 }
 
-.pokemon-question-text {
-  font-size: 13px;
-  line-height: 1.8;
-  margin: 0 0 auto 0;
-  color: #000;
+.q-text {
   flex: 1;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #000;
   display: flex;
   align-items: center;
 }
 
-/* Answers Section (Right Side) */
-.pokemon-answers-section {
-  flex: 1;
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 2px solid #f0f0f0;
+  font-size: 7px;
+  color: #999;
+}
+
+.key {
+  display: inline-block;
+  padding: 2px 4px;
+  background: #000;
+  color: #fff;
+  border-radius: 2px;
+  font-size: 7px;
+  font-weight: bold;
+}
+
+/* Right: Answers Section (60%) */
+.answers-section {
+  flex: 0 0 60%;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  gap: 6px;
 }
 
-.pokemon-answer-choice {
+.answer-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  margin-bottom: 8px;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f8f8f8;
+  border: 2px solid #d0d0d0;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
   position: relative;
-  font-size: 12px;
-  line-height: 1.6;
-  color: #000;
-  transition: background 0.2s ease;
+  min-height: 32px;
 }
 
-.pokemon-answer-choice.selected {
-  background: rgba(255, 215, 0, 0.2);
-  border-left: 4px solid #000;
-  padding-left: 12px;
+.answer-item.active {
+  background: #fffbea;
+  border-color: #000;
+  box-shadow: inset 0 0 0 2px #ffd700;
+  transform: translateX(2px);
 }
 
-.answer-cursor {
-  font-size: 14px;
+.answer-item.active::before {
+  content: '▶';
+  position: absolute;
+  left: -12px;
+  font-size: 9px;
   color: #000;
   animation: cursorPulse 1s ease-in-out infinite;
-  position: absolute;
-  left: 0;
 }
 
 @keyframes cursorPulse {
@@ -939,56 +962,29 @@ function handleContinue() {
   50% { opacity: 0.3; }
 }
 
-.answer-number {
-  font-size: 11px;
-  font-weight: bold;
-  color: #666;
-  min-width: 20px;
-}
-
-.answer-choice-text {
-  flex: 1;
-}
-
-/* Instructions */
-.pokemon-instructions {
+.ans-num {
   font-size: 9px;
-  color: #666;
-  text-align: center;
-  padding-top: 12px;
-  margin-top: 16px;
-  border-top: 2px solid #d0d0d0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.key-indicator {
-  display: inline-block;
-  padding: 3px 6px;
-  background: #000;
-  color: #fff;
-  border-radius: 3px;
-  font-size: 8px;
   font-weight: bold;
-  letter-spacing: 1px;
+  color: #666;
+  min-width: 12px;
 }
 
-.divider {
-  color: #999;
+.ans-text {
+  flex: 1;
   font-size: 10px;
+  line-height: 1.4;
+  color: #000;
 }
 
-/* Feedback Section */
-.pokemon-feedback-section {
+/* Feedback Display */
+.feedback-display {
   animation: feedbackSlideIn 0.3s ease-out;
 }
 
 @keyframes feedbackSlideIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -996,87 +992,61 @@ function handleContinue() {
   }
 }
 
-.feedback-result {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 3px solid #000;
-}
-
-.feedback-result.correct {
-  border-bottom-color: #4caf50;
-}
-
-.feedback-result.incorrect {
-  border-bottom-color: #ef5350;
-}
-
-.result-icon {
-  font-size: 24px;
-  font-weight: bold;
-}
-
-.feedback-result.correct .result-icon {
-  color: #4caf50;
-}
-
-.feedback-result.incorrect .result-icon {
-  color: #ef5350;
-}
-
-.result-text {
-  font-size: 14px;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.feedback-result.correct .result-text {
-  color: #4caf50;
-}
-
-.feedback-result.incorrect .result-text {
-  color: #ef5350;
-}
-
-.feedback-text {
-  font-size: 12px;
-  line-height: 1.8;
-  color: #000;
-  margin: 0 0 16px 0;
-}
-
-.continue-prompt {
+.result-bar {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 3px;
+}
+
+.result-bar.correct {
+  background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+  border: 2px solid #2e7d32;
+}
+
+.result-bar.wrong {
+  background: linear-gradient(135deg, #ef5350 0%, #f44336 100%);
+  border: 2px solid #c62828;
+}
+
+.result-bar .icon {
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.result-bar .label {
+  font-size: 11px;
+  font-weight: bold;
+  color: #fff;
+  letter-spacing: 1px;
+}
+
+.explain-text {
   font-size: 10px;
+  line-height: 1.6;
+  color: #333;
+  margin: 0 0 10px 0;
+  padding: 8px;
+  background: #f8f8f8;
+  border-radius: 3px;
+}
+
+.continue-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  font-size: 8px;
   color: #666;
-  padding-top: 12px;
-  border-top: 2px solid #d0d0d0;
+  padding-top: 6px;
+  border-top: 2px solid #e0e0e0;
 }
 
-.continue-arrow {
-  font-size: 12px;
-  color: #000;
-  animation: arrowBounce 1s ease-in-out infinite;
-}
-
-@keyframes arrowBounce {
-  0%, 100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  50% {
-    transform: translateY(4px);
-    opacity: 0.6;
-  }
-}
-
-/* Responsive Adjustments */
+/* Responsive Adjustments - Horizontal Layout */
 @media (max-width: 1000px) {
   .sprite-image {
     width: 120px;
@@ -1097,28 +1067,12 @@ function handleContinue() {
     font-size: 12px;
   }
 
-  .pokemon-question-text {
-    font-size: 12px;
+  .q-text {
+    font-size: 10px;
   }
 
-  .answer-choice-text {
-    font-size: 11px;
-  }
-
-  .battle-ui-panel {
-    width: 800px;
-  }
-
-  .pokemon-battle-box {
-    padding: 20px 24px;
-  }
-
-  .pokemon-battle-layout {
-    gap: 20px;
-  }
-
-  .pokemon-question-section {
-    padding-right: 20px;
+  .ans-text {
+    font-size: 9px;
   }
 }
 
@@ -1130,7 +1084,7 @@ function handleContinue() {
 
   .player-area {
     left: 80px;
-    bottom: 300px;
+    bottom: 270px;
   }
 
   .sprite-image {
@@ -1152,56 +1106,67 @@ function handleContinue() {
     font-size: 11px;
   }
 
-  .battle-ui-panel {
-    width: 700px;
-  }
-
   .pokemon-battle-box {
-    padding: 16px 20px;
+    padding: 12px 14px;
   }
 
-  .pokemon-question-text {
-    font-size: 11px;
+  .battle-layout-horizontal {
+    gap: 12px;
+    min-height: 110px;
   }
 
-  .answer-choice-text {
+  .question-section {
+    padding-right: 12px;
+  }
+
+  .q-text {
     font-size: 10px;
   }
 
-  .pokemon-answer-choice {
-    padding: 8px 12px;
+  .ans-text {
+    font-size: 9px;
   }
 
-  .pokemon-battle-layout {
-    gap: 16px;
-  }
-
-  .pokemon-question-section {
-    padding-right: 16px;
+  .answer-item {
+    padding: 7px 9px;
+    min-height: 28px;
   }
 }
 
-/* Mobile-specific font scaling */
+/* Mobile - Stack vertically */
 @media (max-width: 768px) {
   .battle-screen {
-    font-size: 90%; /* Scale down all em/rem-based fonts */
+    font-size: 90%;
   }
 
-  .pokemon-question-text {
-    font-size: 11px !important;
+  .battle-layout-horizontal {
+    flex-direction: column;
+    gap: 10px;
+    min-height: auto;
   }
 
-  .pokemon-answer-choice {
+  .question-section {
+    flex: 1;
+    padding-right: 0;
+    border-right: none;
+    padding-bottom: 10px;
+    border-bottom: 3px solid #e0e0e0;
+  }
+
+  .answers-section {
+    flex: 1;
+  }
+
+  .q-text {
     font-size: 10px !important;
-    padding: 10px 14px !important;
+  }
+
+  .ans-text {
+    font-size: 9px !important;
   }
 
   .hp-display {
     font-size: 10px !important;
-  }
-
-  .battle-instructions {
-    font-size: 8px !important;
   }
 
   .exit-battle-btn {
@@ -1213,6 +1178,14 @@ function handleContinue() {
     max-width: 90%;
     max-height: 90%;
   }
+
+  .pokemon-battle-box {
+    padding: 10px 12px;
+  }
+
+  .answer-item {
+    padding: 7px 8px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1220,21 +1193,16 @@ function handleContinue() {
     font-size: 85%;
   }
 
-  .pokemon-question-text {
-    font-size: 10px !important;
+  .q-text {
+    font-size: 9px !important;
   }
 
-  .pokemon-answer-choice {
-    font-size: 9px !important;
-    padding: 8px 12px !important;
+  .ans-text {
+    font-size: 8px !important;
   }
 
   .hp-display {
     font-size: 9px !important;
-  }
-
-  .battle-instructions {
-    font-size: 7px !important;
   }
 
   .exit-battle-btn {
@@ -1242,6 +1210,19 @@ function handleContinue() {
     height: 32px;
     top: 8px;
     right: 8px;
+  }
+
+  .pokemon-battle-box {
+    padding: 8px 10px;
+  }
+
+  .answer-item {
+    padding: 6px 7px;
+    min-height: 24px;
+  }
+
+  .battle-layout-horizontal {
+    gap: 8px;
   }
 }
 </style>

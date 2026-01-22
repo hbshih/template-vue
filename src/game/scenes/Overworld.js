@@ -1,6 +1,7 @@
 import { EventBus } from '../EventBus';
 import { Scene } from 'phaser';
 import gameState from '../GameState';
+import guestDataManager from '../GuestData';
 
 export class Overworld extends Scene
 {
@@ -143,9 +144,28 @@ export class Overworld extends Scene
         // Listen for battle start - disable input during battle
         EventBus.on('start-battle', () => {
             this.battleActive = true;
-            // Pause overworld music during battle
+            // Pause overworld music during battle - safely check sound context
             if (this.music && this.music.isPlaying) {
-                this.music.pause();
+                try {
+                    this.music.pause();
+                } catch (e) {
+                    console.warn('Failed to pause overworld music:', e);
+                }
+            }
+            // Hide mobile controls during battle
+            this.setMobileControlsVisible(false);
+        });
+
+        // Listen for battle starting from encounter dialog
+        EventBus.on('battle-starting', () => {
+            this.battleActive = true;
+            // Pause overworld music during battle - safely check sound context
+            if (this.music && this.music.isPlaying) {
+                try {
+                    this.music.pause();
+                } catch (e) {
+                    console.warn('Failed to pause overworld music:', e);
+                }
             }
             // Hide mobile controls during battle
             this.setMobileControlsVisible(false);
@@ -154,9 +174,15 @@ export class Overworld extends Scene
         // Listen for battle end - re-enable input
         EventBus.on('battle-ended', () => {
             this.battleActive = false;
-            // Resume overworld music after battle
-            if (this.music && !this.music.isPlaying) {
-                this.music.resume();
+            // Resume overworld music after battle - use play() instead of resume()
+            if (this.music && this.sound && this.sound.context) {
+                try {
+                    if (!this.music.isPlaying) {
+                        this.music.play();
+                    }
+                } catch (e) {
+                    console.warn('Failed to resume overworld music:', e);
+                }
             }
             // Show mobile controls after battle
             this.setMobileControlsVisible(true);
@@ -169,9 +195,15 @@ export class Overworld extends Scene
                 this.battleNPC = null;
             }
             this.battleActive = false;
-            // Resume music if paused
-            if (this.music && !this.music.isPlaying) {
-                this.music.resume();
+            // Resume music if paused - use play() instead of resume()
+            if (this.music && this.sound && this.sound.context) {
+                try {
+                    if (!this.music.isPlaying) {
+                        this.music.play();
+                    }
+                } catch (e) {
+                    console.warn('Failed to resume overworld music:', e);
+                }
             }
             // Show mobile controls
             this.setMobileControlsVisible(true);
@@ -184,47 +216,76 @@ export class Overworld extends Scene
 
         // Audio control events from BattleScreen
         EventBus.on('play-battle-music', () => {
-            // Stop overworld music and play battle music
+            // Stop overworld music and play battle music - safely check sound context
             if (this.music && this.music.isPlaying) {
-                this.music.stop();
+                try {
+                    this.music.stop();
+                } catch (e) {
+                    console.warn('Failed to stop overworld music:', e);
+                }
             }
-            if (!this.battleMusic) {
-                this.battleMusic = this.sound.add('battle-music', {
-                    loop: true,
-                    volume: 0.5
-                });
+            // Check if sound manager exists
+            if (this.sound && this.sound.context) {
+                try {
+                    if (!this.battleMusic) {
+                        this.battleMusic = this.sound.add('battle-music', {
+                            loop: true,
+                            volume: 0.5
+                        });
+                    }
+                    if (this.battleMusic && !this.battleMusic.isPlaying) {
+                        this.battleMusic.play();
+                    }
+                } catch (e) {
+                    console.warn('Failed to play battle music:', e);
+                }
             }
-            this.battleMusic.play();
         });
 
         EventBus.on('stop-battle-music', () => {
-            // Stop battle music and resume overworld music
+            // Stop battle music and resume overworld music - safely check sound context
             if (this.battleMusic && this.battleMusic.isPlaying) {
-                this.battleMusic.stop();
+                try {
+                    this.battleMusic.stop();
+                } catch (e) {
+                    console.warn('Failed to stop battle music:', e);
+                }
             }
-            if (this.music && !this.music.isPlaying) {
-                this.music.play();
+            if (this.music && this.sound && this.sound.context && !this.music.isPlaying) {
+                try {
+                    this.music.play();
+                } catch (e) {
+                    console.warn('Failed to resume overworld music:', e);
+                }
             }
         });
 
         EventBus.on('play-victory-sound', () => {
-            // Play victory fanfare (doesn't loop)
-            if (!this.victorySound) {
-                this.victorySound = this.sound.add('victory-fanfare', {
-                    loop: false,
-                    volume: 0.6
-                });
+            // Play victory fanfare (doesn't loop) - safely check sound context
+            if (this.sound && this.sound.context) {
+                try {
+                    if (!this.victorySound) {
+                        this.victorySound = this.sound.add('victory-fanfare', {
+                            loop: false,
+                            volume: 0.6
+                        });
+                    }
+                    // Stop battle music first
+                    if (this.battleMusic && this.battleMusic.isPlaying) {
+                        this.battleMusic.stop();
+                    }
+                    this.victorySound.play();
+                } catch (e) {
+                    console.warn('Failed to play victory sound:', e);
+                }
             }
-            // Stop battle music first
-            if (this.battleMusic && this.battleMusic.isPlaying) {
-                this.battleMusic.stop();
-            }
-            this.victorySound.play();
         });
 
         // Global mute/unmute control
         EventBus.on('toggle-mute', (isMuted) => {
-            this.sound.mute = isMuted;
+            if (this.sound) {
+                this.sound.mute = isMuted;
+            }
         });
 
         EventBus.emit('current-scene-ready', this);
@@ -247,85 +308,135 @@ export class Overworld extends Scene
         const isLargeMap = this.currentMap === 'large-map';
 
         if (isLargeMap) {
-            // Place NPCs throughout the city with better spacing
-            const maxNPCs = 150; // Reduced from 300 for better performance/visibility
+            // Get selected guests from GuestDataManager
+            const selectedGuests = guestDataManager.getSelectedGuests();
+            if (selectedGuests.length === 0) {
+                console.error('No guests loaded! NPCs will not be created.');
+                return;
+            }
+
+            const maxNPCs = selectedGuests.length;
             const mapWidth = this.map.width;
             const mapHeight = this.map.height;
-
-            const guestNames = [
-                'Elena Verna', 'Shreyas Doshi', 'Lenny Rachitsky',
-                'Casey Winters', 'Nir Eyal', 'Julie Zhuo',
-                'Des Traynor', 'April Dunford', 'Marty Cagan'
-            ];
+            const minSpacing = 8; // Minimum tiles between NPCs
+            const maxAttempts = 500; // Maximum placement attempts per NPC
 
             let npcCount = 0;
-            const minSpacing = 7; // Increased spacing for less crowding
+            let attempts = 0;
 
-            // Distribute NPCs across the map, checking for walkable tiles
-            for (let y = 8; y < mapHeight - 8 && npcCount < maxNPCs; y += minSpacing) {
-                for (let x = 8; x < mapWidth - 8 && npcCount < maxNPCs; x += minSpacing) {
-                    // Check if this tile is walkable (no collision)
-                    const tile = this.worldLayer.getTileAt(x, y);
-                    if (!tile || !tile.collides) {
-                        const guestId = String(npcCount + 1);
-                        const guestName = guestNames[npcCount % guestNames.length] + ` #${Math.floor(npcCount / guestNames.length) + 1}`;
+            // Helper function to check if position is valid
+            const isValidPosition = (x, y, existingPositions) => {
+                // Check bounds
+                if (x < 3 || x >= mapWidth - 3 || y < 3 || y >= mapHeight - 3) {
+                    return false;
+                }
 
-                        const npc = {
-                            id: guestId,
-                            name: guestName,
-                            tileX: x,
-                            tileY: y,
-                            direction: ['down', 'up', 'left', 'right'][npcCount % 4],
-                            sprite: null,
-                            challenged: false
-                        };
+                // Check if tile is walkable
+                const tile = this.worldLayer.getTileAt(x, y);
+                if (!tile || tile.collides) {
+                    return false;
+                }
 
-                        // Create NPC sprite
-                        let sprite;
-                        if (npcCount === 0) {
-                            // First NPC uses Elena sprite
-                            sprite = this.add.sprite(
-                                x * 32 + 16,
-                                y * 32 + 16,
-                                'elena-front'
-                            );
-                            sprite.setScale(0.15);
-                        } else {
-                            // Color-coded placeholders for different guests
-                            const colors = [0xFF69B4, 0x87CEEB, 0x98D982, 0xFFD700, 0xFF6B6B, 0x9B59B6];
-                            sprite = this.add.rectangle(
-                                x * 32 + 16,
-                                y * 32 + 16,
-                                20, 20,
-                                colors[npcCount % colors.length]
-                            );
-                            sprite.setStrokeStyle(2, 0x000000);
-                        }
-                        sprite.setDepth(5);
-
-                        // Check if NPC is already defeated
-                        const isDefeated = gameState.isGuestDefeated(guestId);
-                        if (isDefeated) {
-                            sprite.setAlpha(0.4);
-                            // Apply grey tint - different methods for sprites vs rectangles
-                            if (sprite.setTint) {
-                                sprite.setTint(0x888888); // Grey tint for sprites
-                            } else if (sprite.setFillStyle) {
-                                sprite.setFillStyle(0x888888); // Grey fill for rectangles
-                                sprite.setStrokeStyle(2, 0x555555); // Darker stroke for defeated
-                            }
-                            npc.challenged = true; // Mark as already challenged
-                        }
-
-                        npc.sprite = sprite;
-                        npc.defeated = isDefeated;
-                        this.npcs.push(npc);
-                        npcCount++;
+                // Check spacing from existing NPCs
+                for (const pos of existingPositions) {
+                    const distance = Math.abs(pos.x - x) + Math.abs(pos.y - y);
+                    if (distance < minSpacing) {
+                        return false;
                     }
+                }
+
+                return true;
+            };
+
+            const npcPositions = [];
+
+            // Randomly place NPCs
+            while (npcCount < maxNPCs && attempts < maxAttempts * maxNPCs) {
+                attempts++;
+
+                // Generate random position
+                let x, y;
+
+                // For Elena (first guest), place near starting position
+                if (npcCount === 0) {
+                    // Place Elena within 10 tiles of starting position
+                    const offsetX = Math.floor(Math.random() * 20) - 10; // -10 to +10
+                    const offsetY = Math.floor(Math.random() * 20) - 10;
+                    x = Math.max(3, Math.min(mapWidth - 3, this.player.tileX + offsetX));
+                    y = Math.max(3, Math.min(mapHeight - 3, this.player.tileY + offsetY));
+                } else {
+                    // Random position for other NPCs
+                    x = Math.floor(Math.random() * (mapWidth - 10)) + 5;
+                    y = Math.floor(Math.random() * (mapHeight - 10)) + 5;
+                }
+
+                if (isValidPosition(x, y, npcPositions)) {
+                    const guest = selectedGuests[npcCount];
+                    const guestId = guest.id;
+                    const guestName = guest.name;
+                    const avatarKey = guest.avatarKey;
+
+                    const npc = {
+                        id: guestId,
+                        name: guestName,
+                        tileX: x,
+                        tileY: y,
+                        direction: ['down', 'up', 'left', 'right'][Math.floor(Math.random() * 4)],
+                        sprite: null,
+                        challenged: false
+                    };
+
+                    // Create NPC sprite using avatar image
+                    let sprite;
+
+                    if (this.textures.exists(avatarKey)) {
+                        sprite = this.add.sprite(
+                            x * 32 + 16,
+                            y * 32 + 16,
+                            avatarKey
+                        );
+                        sprite.setDisplaySize(80, 80);
+                    } else {
+                        console.warn(`Avatar not found for ${guestName}, using fallback`);
+                        const colors = [0xFF69B4, 0x87CEEB, 0x98D982, 0xFFD700, 0xFF6B6B, 0x9B59B6];
+                        sprite = this.add.rectangle(
+                            x * 32 + 16,
+                            y * 32 + 16,
+                            20, 20,
+                            colors[npcCount % colors.length]
+                        );
+                        sprite.setStrokeStyle(2, 0x000000);
+                    }
+                    sprite.setDepth(5);
+
+                    // Check if NPC is already defeated
+                    const isDefeated = gameState.isGuestDefeated(guestId);
+                    if (isDefeated) {
+                        sprite.setAlpha(0.4);
+                        if (sprite.setTint) {
+                            sprite.setTint(0x888888);
+                        } else if (sprite.setFillStyle) {
+                            sprite.setFillStyle(0x888888);
+                            sprite.setStrokeStyle(2, 0x555555);
+                        }
+                        npc.challenged = true;
+                    }
+
+                    npc.sprite = sprite;
+                    npc.defeated = isDefeated;
+                    this.npcs.push(npc);
+                    npcPositions.push({ x, y });
+                    npcCount++;
                 }
             }
 
-            console.log(`Created ${npcCount} NPCs across the city`);
+            console.log(`Created ${npcCount} NPCs across the city (${attempts} placement attempts)`);
+            if (npcCount > 0) {
+                console.log('First NPC:', this.npcs[0]);
+                console.log('All NPC names:', this.npcs.map(n => n.name).join(', '));
+            } else {
+                console.error('NO NPCs WERE CREATED! Check validation logic.');
+            }
         } else {
             // Small map - original 3 NPCs
             const guestData = [
@@ -422,12 +533,6 @@ export class Overworld extends Scene
         // Update interaction prompt
         this.updateInteractionPrompt();
 
-        // Check for NPC interaction
-        if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE) ||
-            Phaser.Input.Keyboard.JustDown(this.keys.ENTER)) {
-            this.handleInteraction();
-        }
-
         // Collection hotkey
         if (Phaser.Input.Keyboard.JustDown(this.keys.C)) {
             EventBus.emit('open-collection');
@@ -436,13 +541,19 @@ export class Overworld extends Scene
 
     updateInteractionPrompt ()
     {
-        // Check for NPCs within 5 tile range
-        const interactionRange = 5;
+        // Debug: Log NPC array length occasionally
+        if (!this.lastNPCLogTime || Date.now() - this.lastNPCLogTime > 5000) {
+            console.log(`updateInteractionPrompt: ${this.npcs.length} NPCs available`);
+            this.lastNPCLogTime = Date.now();
+        }
+
+        // Check for NPCs within 2 tile range (closer detection)
+        const interactionRange = 2;
         let nearestNPC = null;
         let nearestDistance = Infinity;
 
         this.npcs.forEach(npc => {
-            if (!npc.challenged) {
+            if (!npc.challenged && !npc.defeated) {
                 const dx = Math.abs(npc.tileX - this.player.tileX);
                 const dy = Math.abs(npc.tileY - this.player.tileY);
                 const distance = dx + dy; // Manhattan distance
@@ -458,6 +569,7 @@ export class Overworld extends Scene
             // Store nearest NPC and emit event to show encounter dialog
             if (!this.nearestNPC || this.nearestNPC.id !== nearestNPC.id) {
                 this.nearestNPC = nearestNPC;
+                console.log('Found nearest NPC:', nearestNPC.name, 'at distance:', nearestDistance);
                 EventBus.emit('show-encounter-dialog', {
                     id: nearestNPC.id,
                     name: nearestNPC.name,

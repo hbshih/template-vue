@@ -5,8 +5,14 @@
       <!-- Inner border decoration -->
       <div class="textbox-inner-border"></div>
 
-      <!-- NPC name header -->
+      <!-- NPC avatar and name header -->
       <div class="npc-name-header">
+        <img
+          v-if="npcData.name"
+          :src="getNpcAvatarPath(npcData.name)"
+          :alt="npcData.name"
+          class="npc-avatar-small"
+        />
         <span class="name-text">{{ npcData.name }}</span>
       </div>
 
@@ -32,7 +38,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
   isActive: Boolean,
@@ -60,10 +66,18 @@ const displayedMessage = ref('');
 const isTyping = ref(false);
 let typewriterTimeout = null;
 
+// Helper function to get avatar path
+function getNpcAvatarPath(guestName) {
+  if (guestName.includes('Elena Verna')) {
+    return '/assets/elena-front.png';
+  }
+  return `/assets/avatars/${guestName}_pixel_art.png`;
+}
+
 // Generate random message
 function getRandomMessage() {
   const randomMsg = encounterMessages[Math.floor(Math.random() * encounterMessages.length)];
-  return `${props.npcData.name} ${randomMsg}`;
+  return `${randomMsg}`;
 }
 
 // Typewriter effect
@@ -99,7 +113,24 @@ watch(() => props.isActive, (newVal) => {
   }
 });
 
+// Handle keyboard input
+function handleKeyPress(event) {
+  if (!props.isActive) return;
+
+  if (event.key === ' ' || event.key === 'Enter') {
+    event.preventDefault();
+    event.stopPropagation();
+    console.log('EncounterDialog: SPACE/ENTER pressed, accepting battle');
+    emit('accept');
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyPress);
+});
+
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyPress);
   if (typewriterTimeout) {
     clearTimeout(typewriterTimeout);
   }
@@ -162,6 +193,21 @@ onUnmounted(() => {
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 3px solid #000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.npc-avatar-small {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  border: 2px solid #000;
+  border-radius: 4px;
+  background: #f0f0f0;
 }
 
 .name-text {

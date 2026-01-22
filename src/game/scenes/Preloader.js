@@ -1,10 +1,13 @@
 import { Scene } from 'phaser';
+import guestDataManager from '../GuestData';
+import { EventBus } from '../EventBus';
 
 export class Preloader extends Scene
 {
     constructor ()
     {
         super('Preloader');
+        this.questionsLoaded = false;
     }
 
     init ()
@@ -57,14 +60,77 @@ export class Preloader extends Scene
         this.load.audio('battle-music', 'audio/music/battle-theme.ogg');
         this.load.audio('victory-fanfare', 'audio/music/victory-fanfare.ogg');
         this.load.audio('victory-music', 'audio/music/victory-theme.ogg');
+
+        // Load questions.json
+        this.load.json('questions', 'questions.json');
+
+        // Set up callback for when questions.json loads
+        this.load.once('complete', () => {
+            this.loadGuestData();
+        });
+    }
+
+    loadGuestData ()
+    {
+        if (this.questionsLoaded) return;
+        this.questionsLoaded = true;
+
+        console.log('Loading guest data...');
+
+        // Get questions data from cache
+        const questionsData = this.cache.json.get('questions');
+
+        if (!questionsData) {
+            console.error('Failed to load questions.json');
+            return;
+        }
+
+        console.log('Questions data loaded:', questionsData.episodes ? questionsData.episodes.length : 0, 'episodes');
+
+        // Process questions and select 30 random guests (20 top + 10 random)
+        guestDataManager.loadQuestionsData(questionsData);
+        guestDataManager.selectRandomGuests(30);
+
+        // Load avatar images for selected guests
+        const avatarsToLoad = guestDataManager.getAvatarsToLoad();
+
+        console.log(`Queueing ${avatarsToLoad.length} avatar images for loading...`);
+
+        // Handle missing avatars gracefully
+        this.load.on('loaderror', (file) => {
+            if (file.key && file.key.startsWith('avatar-')) {
+                console.warn(`Avatar not found: ${file.src}, will use fallback`);
+            }
+        });
+
+        avatarsToLoad.forEach(avatar => {
+            // Try to load the avatar, but don't fail if it doesn't exist
+            this.load.image(avatar.key, avatar.path);
+        });
+
+        // Start loading the avatars if there are any
+        if (avatarsToLoad.length > 0) {
+            console.log('Starting avatar image loading...');
+            this.load.once('complete', () => {
+                console.log('Avatar loading complete!');
+                // Emit event to notify that guests are ready
+                EventBus.emit('guests-loaded', guestDataManager.getSelectedGuests());
+                this.scene.start('MainMenu');
+            });
+            this.load.start();
+        } else {
+            console.warn('No avatars to load');
+            this.scene.start('MainMenu');
+        }
     }
 
     create ()
     {
-        //  When all the assets have loaded, it's often worth creating global objects here that the rest of the game can use.
-        //  For example, you can define global animations here, so we can use them in other scenes.
-
-        //  Move to the MainMenu. You could also swap this for a Scene Transition, such as a camera fade.
-        this.scene.start('MainMenu');
+        // This will only be called if no avatars need to be loaded
+        // Otherwise loadGuestData handles the scene transition
+        if (!this.questionsLoaded) {
+            console.log('Preloader create called without guest data');
+            this.scene.start('MainMenu');
+        }
     }
 }

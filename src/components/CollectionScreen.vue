@@ -29,12 +29,17 @@
         @click="selectGuest(guest)"
       >
         <div class="guest-card-sprite">
-          <div v-if="guest.captured" style="font-size: 40px;">{{ guest.sprite }}</div>
+          <img
+            v-if="guest.captured"
+            :src="getGuestAvatarPath(guest.name)"
+            :alt="guest.name"
+            class="collection-avatar"
+          />
           <div v-else class="sprite-silhouette">?</div>
         </div>
         <div class="guest-card-info">
           <p class="guest-card-name">{{ guest.name }}</p>
-          <p class="guest-card-number">#{{ guest.id.padStart(3, '0') }}</p>
+          <p class="guest-card-number">#{{ guest.id }}</p>
         </div>
       </div>
     </div>
@@ -43,10 +48,14 @@
       <div class="guest-detail" @click.stop>
         <button class="detail-close-btn" @click="closeDetail">✕</button>
         <div class="detail-sprite">
-          <div style="font-size: 64px;">{{ selectedGuest.sprite }}</div>
+          <img
+            :src="getGuestAvatarPath(selectedGuest.name)"
+            :alt="selectedGuest.name"
+            class="detail-avatar"
+          />
         </div>
         <h2 class="detail-name">{{ selectedGuest.name }}</h2>
-        <p class="detail-number">#{{ selectedGuest.id.padStart(3, '0') }}</p>
+        <p class="detail-number">#{{ selectedGuest.id }}</p>
         <div class="detail-info">
           <div class="detail-row">
             <span class="detail-label">Episode:</span>
@@ -98,6 +107,15 @@ watch(() => props.isActive, (newVal) => {
     currentPage.value = 1;
   }
 });
+
+// Helper function to get avatar path
+function getGuestAvatarPath(guestName) {
+  // Special case for Elena
+  if (guestName.includes('Elena Verna')) {
+    return '/assets/elena-front.png';
+  }
+  return `/assets/avatars/${guestName}_pixel_art.png`;
+}
 
 function selectGuest(guest) {
   if (guest.captured) {
@@ -287,6 +305,15 @@ function prevPage() {
   color: #999;
 }
 
+.collection-avatar {
+  width: 76px;
+  height: 76px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
 .guest-card-info {
   text-align: center;
   width: 100%;
@@ -370,6 +397,15 @@ function prevPage() {
   justify-content: center;
   font-size: 64px;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.detail-avatar {
+  width: 110px;
+  height: 110px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
 }
 
 .detail-name {

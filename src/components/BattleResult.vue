@@ -99,12 +99,23 @@ watch(() => props.isActive, (newVal) => {
 });
 
 function handleKeyPress(event) {
-  if (!props.isActive) return;
+  console.log('BattleResult handleKeyPress called - isActive:', props.isActive, 'key:', event.key);
+
+  if (!props.isActive) {
+    console.log('BattleResult handleKeyPress - not active, returning');
+    return;
+  }
 
   const key = event.key;
-  const resultKeys = ['ArrowLeft', 'ArrowRight', 'Enter'];
-  if (!resultKeys.includes(key)) return;
+  console.log('BattleResult processing key:', key, 'selectedButton:', selectedButton.value, 'won:', props.won);
 
+  const resultKeys = ['ArrowLeft', 'ArrowRight', 'Enter', ' '];
+  if (!resultKeys.includes(key)) {
+    console.log('Key not in resultKeys, ignoring');
+    return;
+  }
+
+  console.log('Preventing default and stopping propagation');
   event.preventDefault();
   event.stopPropagation();
 
@@ -112,28 +123,35 @@ function handleKeyPress(event) {
     selectedButton.value = Math.max(0, selectedButton.value - 1);
   } else if (key === 'ArrowRight') {
     selectedButton.value = Math.min(numButtons.value - 1, selectedButton.value + 1);
-  } else if (key === 'Enter') {
+  } else if (key === 'Enter' || key === ' ') {
+    console.log('Enter/Space pressed - calling action. selectedButton:', selectedButton.value, 'won:', props.won, 'numButtons:', numButtons.value);
     if (selectedButton.value === 0 && !props.won) {
+      console.log('Calling retry()');
       retry();
     } else {
+      console.log('Calling continueGame()');
       continueGame();
     }
   }
 }
 
 onMounted(() => {
-  window.addEventListener('keydown', handleKeyPress);
+  console.log('BattleResult mounted, adding keydown listener');
+  window.addEventListener('keydown', handleKeyPress, true); // Use capture phase
 });
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeyPress);
+  console.log('BattleResult unmounting, removing keydown listener');
+  window.removeEventListener('keydown', handleKeyPress, true);
 });
 
 function retry() {
+  console.log('BattleResult: retry() called, emitting retry event');
   emit('retry');
 }
 
 function continueGame() {
+  console.log('BattleResult: continueGame() called, emitting continue event');
   emit('continue');
 }
 </script>

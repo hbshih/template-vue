@@ -6,6 +6,7 @@ import CollectionScreen from './components/CollectionScreen.vue';
 import EncounterDialog from './components/EncounterDialog.vue';
 import ShareModal from './components/ShareModal.vue';
 import { EventBus } from './game/EventBus';
+import guestDataManager from './game/GuestData';
 
 // Game state
 const phaserRef = ref();
@@ -109,78 +110,8 @@ const battleData = ref({
   ]
 });
 
-// Collection data
-const guestTemplates = [
-  {
-    name: "Elena Verna",
-    sprite: "👩",
-    difficulty: "Medium",
-    episode: "Growth Strategy"
-  },
-  {
-    name: "Shreyas Doshi",
-    sprite: "👤",
-    difficulty: "Hard",
-    episode: "Product Management Excellence"
-  },
-  {
-    name: "Lenny Rachitsky",
-    sprite: "👨",
-    difficulty: "Easy",
-    episode: "Intro to Product"
-  },
-  {
-    name: "Casey Winters",
-    sprite: "👤",
-    difficulty: "Medium",
-    episode: "Growth Strategies"
-  },
-  {
-    name: "Nir Eyal",
-    sprite: "👤",
-    difficulty: "Hard",
-    episode: "Behavioral Design"
-  },
-  {
-    name: "Julie Zhuo",
-    sprite: "👩",
-    difficulty: "Medium",
-    episode: "Design Leadership"
-  },
-  {
-    name: "Des Traynor",
-    sprite: "👤",
-    difficulty: "Hard",
-    episode: "Product Strategy"
-  },
-  {
-    name: "April Dunford",
-    sprite: "👩",
-    difficulty: "Medium",
-    episode: "Positioning"
-  },
-  {
-    name: "Marty Cagan",
-    sprite: "👤",
-    difficulty: "Hard",
-    episode: "Product Leadership"
-  }
-];
-
-// Generate collection for all 150 NPCs
-const collection = ref(
-  Array.from({ length: 150 }, (_, i) => {
-    const template = guestTemplates[i % guestTemplates.length];
-    return {
-      id: String(i + 1),
-      name: `${template.name} #${Math.floor(i / guestTemplates.length) + 1}`,
-      sprite: template.sprite,
-      difficulty: template.difficulty,
-      episode: template.episode,
-      captured: false
-    };
-  })
-);
+// Collection data - will be populated from GuestDataManager
+const collection = ref([]);
 
 // Computed stats
 const capturedCount = computed(() => collection.value.filter(g => g.captured).length);
@@ -196,6 +127,7 @@ function handleStartBattle() {
 }
 
 function handleCloseBattle() {
+  console.log('handleCloseBattle called in App.vue');
   showBattle.value = false;
   // Re-enable input in Overworld
   EventBus.emit('battle-ended');
@@ -215,12 +147,37 @@ function handleShowEncounter(npcData) {
 }
 
 function handleAcceptBattle() {
+  console.log('handleAcceptBattle called with encounterNPC:', encounterNPC.value);
   showEncounter.value = false;
+
+  // Notify Overworld that battle is starting (disable NPC interaction checks)
+  EventBus.emit('battle-starting');
+
   // Set battle data based on encounterNPC
   if (encounterNPC.value) {
     const guest = collection.value.find(g => g.id === encounterNPC.value.id);
+    console.log('Found guest for battle:', guest);
     if (guest) {
       battleData.value.guest = guest;
+
+      // Load questions from GuestDataManager
+      const questions = guestDataManager.getRandomQuestions(guest.id, 5);
+      console.log('Questions loaded for battle:', questions);
+
+      if (questions && questions.length > 0) {
+        // Update battle data with real questions
+        battleData.value.questions = questions.map((q, index) => ({
+          id: index + 1,
+          type: "mcq",
+          prompt: q.question,
+          choices: q.options,
+          correctAnswer: q.options.indexOf(q.answer),
+          explanation: `The correct answer is: ${q.answer}`
+        }));
+        console.log('Formatted battle questions:', battleData.value.questions);
+      } else {
+        console.error('No questions found for guest:', guest.id, guest.name);
+      }
     }
   }
   showBattle.value = true;
@@ -295,6 +252,36 @@ function toggleMute() {
 }
 
 onMounted(() => {
+  // Listen for guests-loaded event from Preloader
+  EventBus.on('guests-loaded', (guests) => {
+    console.log('✓ Guests loaded event received:', guests.length, 'guests');
+    collection.value = guests;
+    console.log('Collection IDs:', collection.value.map(g => g.id).join(', '));
+  });
+
+  // Fallback: Initialize collection from GuestDataManager (loaded by Preloader)
+  // Try multiple times until guests are loaded
+  let attempts = 0;
+  const maxAttempts = 50; // Increased from 20
+  const checkInterval = setInterval(() => {
+    if (collection.value.length > 0) {
+      // Already loaded via event
+      clearInterval(checkInterval);
+      return;
+    }
+    attempts++;
+    const selectedGuests = guestDataManager.getSelectedGuests();
+    console.log(`Collection init attempt ${attempts}: found ${selectedGuests.length} guests`);
+    if (selectedGuests.length > 0) {
+      collection.value = selectedGuests;
+      console.log(`✓ Initialized collection with ${selectedGuests.length} guests:`, selectedGuests.map(g => `${g.id}:${g.name}`).slice(0, 5));
+      clearInterval(checkInterval);
+    } else if (attempts >= maxAttempts) {
+      console.error('❌ Failed to load guests after', attempts, 'attempts');
+      clearInterval(checkInterval);
+    }
+  }, 200); // Check every 200ms
+
   // Load mute preference from localStorage
   const savedMuteState = localStorage.getItem('pokelenny-muted');
   if (savedMuteState !== null) {
@@ -307,10 +294,16 @@ onMounted(() => {
 
   // Show encounter dialog when approaching NPC
   EventBus.on('show-encounter-dialog', (data) => {
+    console.log('App.vue received show-encounter-dialog event:', data);
+    console.log('Collection length:', collection.value.length);
     if (data && data.id) {
       const guest = collection.value.find(g => g.id === data.id);
+      console.log('Found guest for encounter:', guest);
       if (guest) {
         handleShowEncounter(guest);
+        console.log('showEncounter set to:', showEncounter.value);
+      } else {
+        console.warn('Guest not found in collection. Guest ID:', data.id, 'Collection IDs:', collection.value.map(g => g.id).join(', '));
       }
     }
   });
@@ -323,10 +316,27 @@ onMounted(() => {
 
   // Start battle directly (skip encounter dialog)
   EventBus.on('start-battle', (data) => {
+    console.log('start-battle event received:', data);
     if (data && data.guestId) {
       const guest = collection.value.find(g => g.id === data.guestId);
+      console.log('Found guest for battle:', guest);
       if (guest) {
         battleData.value.guest = guest;
+        // Get 5 random questions for this guest from GuestDataManager
+        const questions = guestDataManager.getRandomQuestions(data.guestId, 5);
+        console.log('Questions loaded for battle:', questions);
+        if (questions && questions.length > 0) {
+          // Update battle data with real questions
+          battleData.value.questions = questions.map((q, index) => ({
+            id: index + 1,
+            type: "mcq",
+            prompt: q.question,
+            choices: q.options,
+            correctAnswer: q.options.indexOf(q.answer),
+            explanation: `The correct answer is: ${q.answer}`
+          }));
+          console.log('Formatted battle questions:', battleData.value.questions);
+        }
         showBattle.value = true;
       }
     }
@@ -339,6 +349,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  EventBus.off('guests-loaded');
   EventBus.off('show-encounter-dialog');
   EventBus.off('hide-encounter-dialog');
   EventBus.off('start-battle');
